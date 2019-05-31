@@ -1,0 +1,582 @@
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(ggmosaic)
+library(dplyr)
+library(statsr)
+library(reshape2)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `gss`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("gss.Rdata")
+# str(gss)
+```
+
+* * *
+
+## Part 1: Data
+
+#### Target population: American society
+
+Since 1972, the General Social Survey (GSS) has been monitoring the society changes in American. By monitoring many elements such as working status, marital status and used those elements as explanatory variables to explain for changes in American society.
+
+#### Generalizablity
+
+This is an obeservational study, and random sampling is apllied in data collection. Hence, the results can be generalizable to the target population.
+
+
+##### Causality
+
+This data is an observational study, so it is not an expriment. This data is not applied random assignment. Hence, There is NO causal conclusion can be draw from the analysis result.
+
+
+##### Bias avoid
+
+No information
+
+##### Sample size
+
+The data contains 57061 cases, 114 variables. Therefore, the sample size is reasonably large.
+
+* * *
+
+## Part 2: Research question
+
+Question: How U.S society has changed in 1972 vs 2012 based on working status and marital status?
+
+Many people believe as more people working as less people gonna married. That thesis appear many times on newspaper so I want to use statistic to verify that thesis.
+
+1. Check independence of workting status and martial status.
+
+2. Check the propotion of working status in 1972 compare with 2012
+
+3. Check the propotion of marital status in 1972 compare with 2012
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+```{r}
+unique(gss$wrkstat)
+unique(gss$marital)
+```
+
+```{r - Data Preparation}
+# Drop NA in wrkstat and marital column
+work_married = gss %>%
+  filter(!is.na(gss$wrkstat), !is.na(gss$marital))
+
+total_drop_NA = nrow(gss) - nrow(work_married)
+total_drop_NA
+# We only drop 30 NA values ==> Reasonable
+
+# drop 4 elements in wrkstat column: School, Other, Retired, Keeping House
+work_married = work_married %>%
+  filter(work_married$wrkstat != "School",
+         work_married$wrkstat != "Other",
+         work_married$wrkstat != "Retired",
+         work_married$wrkstat != "Keeping House")
+
+# Create new column "wrkstat_stat" from "wrkstat": "Unempl, Laid Off" = "Unempl, Laid Off", Else = "Working or Temp Not Working"
+work_married = work_married %>%
+  mutate(wrkstat_stat = ifelse(wrkstat == "Unempl, Laid Off", "Unempl, Laid Off", "Working or Temp Not Working"))
+
+# Create new column "marital_stat" from "marital": "Never Married" = "Never Married", Else = "Married"
+# work_married = work_married %>%
+#   mutate(marital_stat = ifelse(marital == "Never Married", "Never Married", "Married"))
+
+```
+
+### Explanation
+
+**wrkstat** is a categorical variable with 8 levels: Working Fulltime, Retired, Working Parttime, Keeping House, School, Unempl_Laid Off, Temp Not Working, Other. 
+We only concern in active working age people and their marital status. Hence, in column wrkstat, we drop "School", "Other", "Retired", "Keeping House".
+
+**marital** is a categorical variable with 5 levels: Married, Widowed, Divorced, Separated, Never Married.
+
+**Focused scope**: Working age people and their marital status
+
+```{r}
+unique(gss$wrkstat)
+unique(gss$marital)
+```
+
+***
+
+#### 1. Checking the independence between Working Status and Marital
+
+```{r - original data}
+p = ggplot(data=gss, aes(x=factor(wrkstat), fill=marital)) + 
+  geom_bar(position="fill") + 
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+p + labs(title = "Working Status vs Marital Original", x = "Working Status", fill = "Marital", y = "Percent")
+```
+```{r - focused data}
+p = ggplot(data=work_married, aes(x=factor(wrkstat), fill=marital)) + 
+  geom_bar(position="fill") + 
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+p + labs(title = "Working Status vs Marital Focused", x = "Working Status", fill = "Marital", y = "Percent")
+```
+```{r - mosaic plot for focused data}
+# p = ggplot(data = work_married) + 
+#   geom_mosaic(aes(x=product(wrkstat), fill=marital), na.rm=TRUE) + 
+#   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+# 
+# p + labs(title = "Working Status vs Marital Focused", x = "Working Status", fill = "Marital", y = "Percent")
+```
+
+**Conclusion**
+
+Based on the graph of focused data, we can see that the relationship between working status and marital has some depedent in each other.
+
+```{r - wrangled data}
+# p = ggplot(data=work_married, aes(x=factor(wrkstat_stat), fill=marital_stat)) + 
+#   geom_bar(position="fill") + 
+#   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+# 
+# p + labs(title = "Income Level vs Excercise", x = "Income Levels", fill = "Exercise", y = "Percent")
+# 
+# **Conclusion**
+# 
+# We see there is some difference between married propotion between "Unempl, Laid Off" and "Working or Temp not Working"
+```
+
+
+
+***
+
+#### 2. Check the propotion of working status in 1972 compare with 2012
+
+```{r - working status 1972 vs 2012}
+wrkstat72_12 = gss %>%
+  filter(gss$year == 1972 | gss$year == 2012)
+
+wrkstat72_12 = wrkstat72_12 %>%
+  filter(!is.na(wrkstat72_12$wrkstat))
+
+p = ggplot(data = wrkstat72_12, aes(x = factor(year), fill = wrkstat)) + 
+  geom_bar(position = "fill") + 
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+p + labs(title = "Working Status 1972 vs 2012", x = "Year", fill = "Working Status", y = "Percent")
+
+```
+
+**Conclusion**
+
+Based on the graph, we can see that the propotion of working status between 1972 and 2012 is likely: 
+
+<ul>
+  <li>Increase: Retired, Working Partime, Unempl_Laid Off </li>
+  <li>Decrease: Keeping House </li>
+</ul>
+
+***
+
+#### 3. Check the propotion of martial status in 1972 compare with 2012
+
+```{r -  marital status 1972 vs 2012}
+
+marital72_12 = gss %>%
+  filter(gss$year == 1972 | gss$year == 2012)
+
+marital72_12 = marital72_12 %>%
+  filter(!is.na(marital72_12$marital))
+
+# marital72_12 = work_married %>%
+#   filter(work_married$year == 1972 | work_married$year == 2012)
+
+p = ggplot(data = marital72_12, aes(x = factor(year), fill = marital)) + 
+  geom_bar(position = "fill") +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+p + labs(title = "Marital Status 1972 vs 2012", x = "Year", fill = "Marital Status", y = "Percent")
+```
+
+**Conclusion**
+
+Based on the graph, we can see that the propotion of marital status between 1972 and 2012 is likely:
+<ul>
+  <li>Increase: Never Married, Divorced </li>
+  <li>Decrease: Married </li>
+</ul>
+
+
+* * *
+
+## Part 4: Inference
+
+#### 1. Checking the independence between Working Status and Marital
+
+**H0: The relationship of Working Status and Marital variable is Indpendent**
+
+**HA: The relationship of Working Status and Marital variable is Not Independent**
+
+*Conditions*
+
+1. The observations should be independent.
+
+    Yes. 
+    Because the data is collected by GSS and there is notthing show there is realted between groups 
+    ==> Independence between groups
+    <10% of population
+    ==> Independence within group
+    
+2. Expected counts for each cell should be at least 5
+
+    Yes.
+    
+3. Degrees of freedom should be at least 2 
+
+    Yes.
+    df = (5-1) * (4-1) = 12
+    ==> df >= 2
+    
+*Methodology:*
+
+  Chisquare Test. Because we want to test the independence of two categorical variables and one of them have levels > 2
+  
+  Make the table of wrkstat vs marital
+  
+  inference test using: chisq.test()
+  
+
+```{r - make table of wrkstat vs marital}
+work_marrried_focused = work_married %>%
+  group_by(marital, wrkstat) %>%
+  summarise(n = n()) 
+
+# length(unique(work_marrried_focused$wrkstat)) = 4
+
+w_m_table <- matrix(work_marrried_focused$n, ncol=4, byrow=TRUE)
+colnames(w_m_table) <- unique(work_marrried_focused$wrkstat)
+rownames(w_m_table) <- unique(work_marrried_focused$marital)
+w_m_table <- as.table(w_m_table)
+
+# w_m_table = as.data.frame(w_m_table)
+# w_m_table = addmargins(w_m_table)
+w_m_table
+
+# tbl = table(gss$sex, gss$suicide4)
+# tbl
+```
+```{r - Inference test for Indpendence between Working Status and Marital}
+chisq.test(w_m_table)
+```
+
+*Interpret*
+
+p-value < 0.05. Reject H0, Accpet HA.
+
+The data provide strong evidence that the relationship of Working Status and Marital variable is Not Independent.
+
+***
+
+#### 2. Check the propotion of working status in 1972 compare with 2012
+
+Based on conclusion in EDA, we obtained that: Based on the graph, we can see that the propotion of working status between 1972 and 2012 is likely: 
+
+<ul>
+  <li>Increase: Retired, Working Partime, Unempl_Laid Off </li>
+  <li>Decrease: Keeping House </li>
+</ul>
+
+We will do the two hypothesis testing for the working propotion in 1972 vs 2012
+
+```{r - summary statis for working status 1972 vs 2012}
+wrkstat_test = wrkstat72_12 %>%
+  group_by(wrkstat, year) %>%
+  summarise(n = n()) %>%
+  mutate(propotion = n / sum(n))
+
+# length(unique(wrkstat_test$year))
+
+# wrkstat_test
+
+wrk_test_table <- matrix(wrkstat_test$n, ncol=2, byrow=TRUE)
+colnames(wrk_test_table) <- unique(wrkstat_test$year)
+rownames(wrk_test_table) <- unique(wrkstat_test$wrkstat)
+
+wrk_test_table = as.table(wrk_test_table)
+wrk_test_table = addmargins(wrk_test_table)
+# wrk_test_table = as.data.frame(wrk_test_table)
+wrk_test_table
+```
+
+***
+
+##### Hypothesis testing for Unemployment Rate 1972 vs 2012
+
+**H0: The proportion of Unempl, Laid Off Rate in 1972 is equal with 2012**
+
+**HA: The proportion of Unempl, Laid Off Rate in 1972 is less than 2012**
+
+*Conditions*
+
+  1. The observations in the sample are independent.
+  
+    Yes. 
+    Because the data is collected by GSS and there is notthing show there is realted between groups 
+    ==> Independence between groups
+    <10% of population
+    ==> Independence within group
+    
+  2. The sample size is sufficiently large 
+  
+    Yes.
+    p_pool = (46 + 104) / (1613 + 1973) = 0.04182934
+    p_pool * n_1972  = 0.04182934 * 1613 > 10; (1-p_pool) * n_1972 > 10
+    p_pool * n_2012  = 0.04182934 * 1973 > 10; (1-p_pool) * n_2012 > 10
+    
+*Methodology*
+
+Propotion test for 2 categorical variable. Each categorical variable has 2 levels. Use built-in function "inference" to perform hypothese testing for proportion
+    
+    
+```{r - inference test Unempl, Laid Off}
+# Mutate one column to specific for Unempl, Laid Off Rate testing
+wrkstat72_12 = wrkstat72_12 %>%
+  mutate(wrk_unemploy = ifelse(wrkstat72_12$wrkstat == "Unempl, Laid Off", "Unempl, Laid Off", "Not Unempl, Laid Off"))
+
+
+inference(wrk_unemploy, x = year, data = wrkstat72_12, type = "ht", statistic = "proportion", 
+          success = "Unempl, Laid Off", 
+          method = "theoretical", 
+          alternative = "less")
+```
+
+*Interpret*
+
+p-value < 0.05. Reject H0, Accpet HA.
+
+The data provide strong evidence that the proportion of Unempl, Laid Off Rate in 1972 is less than 2012
+
+
+***
+
+##### Hypothesis testing for Keeping House Rate 1972 vs 2012
+
+
+**H0: The proportion of Keeping House in 1972 is equal with 2012**
+
+**HA: The proportion of Keeping House in 1972 is greater than 2012**
+
+*Conditions*
+
+  1. The observations in the sample are independent.
+  
+    Yes. 
+    Because the data is collected by GSS and there is notthing show there is realted between groups 
+    ==> Independence between groups
+    <10% of population
+    ==> Independence within group
+    
+  2. The sample size is sufficiently large 
+  
+    Yes.
+    p_pool = (432 + 210) / (1613 + 1973) = 0.1790296
+    p_pool * n_1972  = 0.1790296 * 1613 > 10; (1-p_pool) * n_1972 > 10
+    p_pool * n_2012  = 0.1790296 * 1973 > 10; (1-p_pool) * n_2012 > 10
+    
+*Methodology*
+
+Propotion test for 2 categorical variable. Each categorical variable has 2 levels. Use built-in function "inference" to perform hypothese testing for proportion
+
+```{r - inference test Keeping House}
+# Mutate one column to specific for Keeping House Rate testing
+wrkstat72_12 = wrkstat72_12 %>%
+  mutate(wrk_k_house = ifelse(wrkstat72_12$wrkstat == "Keeping House", "Keeping House", "Not Keeping House"))
+
+
+inference(wrk_k_house, x = year, data = wrkstat72_12, type = "ht", statistic = "proportion", 
+          success = "Keeping House", 
+          method = "theoretical", 
+          alternative = "greater")
+```
+
+*Interpret*
+
+p-value < 0.05. Reject H0, Accpet HA.
+The data provide strong evidence that the proportion of Keeping House in 1972 is greater than 2012.
+
+
+***
+
+#### 2. Check the propotion of marital status in 1972 compare with 2012
+
+Based on conclusion in EDA, we obtained that: Based on the graph, we can see that the propotion of marital status between 1972 and 2012 is likely:
+
+<ul>
+  <li>Increase: Never Married, Divorced </li>
+  <li>Decrease: Married </li>
+</ul>
+
+We will do the two hypothesis testing for the marital propotion in 1972 vs 2012
+
+```{r - summary statis for marital status 1972 vs 2012}
+maritalstat_test = marital72_12 %>%
+  group_by(marital, year) %>%
+  summarise(n = n()) %>%
+  mutate(propotion = n / sum(n))
+
+# length(unique(wrkstat_test$year))
+
+# maritalstat_test
+
+marital_test_table <- matrix(maritalstat_test$n, ncol=2, byrow=TRUE)
+colnames(marital_test_table) <- unique(maritalstat_test$year)
+rownames(marital_test_table) <- unique(maritalstat_test$marital)
+
+marital_test_table = as.table(marital_test_table)
+marital_test_table = addmargins(marital_test_table)
+marital_test_table
+
+```
+
+***
+
+##### Hypothesis testing for Married Rate 1972 vs 2012
+
+
+**H0: The proportion of Married in 1972 is equal with 2012**
+
+**HA: The proportion of Married in 1972 is greater than 2012**
+
+*Conditions*
+
+  1. The observations in the sample are independent.
+  
+    Yes. 
+    Because the data is collected by GSS and there is notthing show there is realted between groups 
+    ==> Independence between groups
+    <10% of population
+    ==> Independence within group
+    
+  2. The sample size is sufficiently large 
+  
+    Yes.
+    p_pool = (1160 + 900) / (1613 + 1974) = 0.5742961
+    p_pool * n_1972  = 0.5742961 * 1613 > 10; (1-p_pool) * n_1972 > 10
+    p_pool * n_2012  = 0.5742961 * 1973 > 10; (1-p_pool) * n_2012 > 10
+    
+    
+*Methodology*
+
+Propotion test for 2 categorical variable. Each categorical variable has 2 levels. Use built-in function "inference" to perform hypothese testing for proportion
+    
+```{r - inference test Married}
+# Mutate one column to specific for Married Rate testing
+marital72_12 = marital72_12 %>%
+  mutate(marital_married = ifelse(marital72_12$marital == "Married", "Married", "Not Married"))
+
+
+inference(marital_married, x = year, data = marital72_12, type = "ht", statistic = "proportion",
+          success = "Married", 
+          method = "theoretical", 
+          alternative = "greater")
+```
+
+*Interpret*
+
+p-value < 0.05. Reject H0, Accpet HA.
+
+The data provide strong evidence that the proportion of Married in 1972 is greater than 2012.
+
+***
+
+##### Hypothesis testing for Never Married Rate 1972 vs 2012
+
+
+**H0: The proportion of Married in 1972 is equal with 2012**
+
+**HA: The proportion of Married in 1972 is less than 2012**
+
+*Conditions*
+
+  1. The observations in the sample are independent.
+  
+    Yes. 
+    Because the data is collected by GSS and there is notthing show there is realted between groups 
+    ==> Independence between groups
+    <10% of population
+    ==> Independence within group
+    
+  2. The sample size is sufficiently large 
+  
+    Yes.
+    p_pool = (210 + 526) / (1613 + 1974) = 0.2051854
+    p_pool * n_1972  = 0.2051854 * 1613 > 10; (1-p_pool) * n_1972 > 10
+    p_pool * n_2012  = 0.2051854 * 1973 > 10; (1-p_pool) * n_2012 > 10
+    
+    
+    
+*Methodology*
+
+Propotion test for 2 categorical variable. Each categorical variable has 2 levels. Use built-in function "inference" to perform hypothese testing for proportion
+
+```{r - inference test Never Married}
+# Mutate one column to specific for Keeping House testing
+marital72_12 = marital72_12 %>%
+  mutate(marital_never_married = ifelse(marital72_12$marital == "Never Married", "Never Married", "Not Never Married"))
+
+
+inference(marital_never_married, x = year, data = marital72_12, type = "ht", statistic = "proportion",
+          success = "Never Married", 
+          method = "theoretical", 
+          alternative = "less")
+```
+
+*Interpret*
+
+p-value < 0.05. Reject H0, Accpet HA.
+
+The data provide strong evidence that the proportion of Never Married in 1972 is smaller than 2012.
+
+***
+
+## Project Conclusion
+
+#### Independence
+
+The working status and marital status are associated.
+
+#### Working Status 1972 vs 2012
+
+The Unemployment Rate increased in comparing 1972 with 2012
+
+The Keeping House Rate decreased in comparing 1972 with 2012
+
+More people enter work forces ==> harder to find jobs ==> unemployment rate increase
+
+#### Marital Status 
+
+The Married Rate decrease in comparing 1972 with 2012
+
+The Never Married Rate increase in comparing 1972 with 2012
+
+People in 2012 tend to not married and choose to live single.
+
+#### Conclusion
+
+This is an observational study, so we cannot draw a causal conclusion from this data. However, the working status and marital status are dependent on each other. People life in 2012 is harder than people life in 1972. More people looking for jobs and work harder. Less people concern to married, and people tends to live a single life. 
